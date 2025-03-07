@@ -1,35 +1,158 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import {
+  Box,
+  Flex,
+  Heading,
+  Stack,
+  Text,
+  Button,
+  Icon,
+  IconButton
+} from '@chakra-ui/react';
+import { FiDatabase, FiPlusCircle, FiFileText, FiMenu } from 'react-icons/fi';
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+// Define the type for navigation items
+interface NavItemType {
+  id: string;
+  label: string;
+  icon: React.ComponentType;
 }
 
-export default App
+// Define props for the NavItem component
+interface NavItemProps {
+  item: NavItemType;
+}
+
+function App() {
+  const [activeNav, setActiveNav] = useState('add-card');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  const navItems: NavItemType[] = [
+    { id: 'inventory', label: 'Inventory', icon: FiDatabase },
+    { id: 'add-card', label: 'Add Card', icon: FiPlusCircle },
+    { id: 'import-export', label: 'Import/Export', icon: FiFileText },
+  ];
+
+  // Navigation item component
+  const NavItem = ({ item }: NavItemProps) => (
+    <Button 
+      variant="ghost"
+      justifyContent="flex-start"
+      width="full"
+      padding="4"
+      borderRadius="md"
+      bg={activeNav === item.id ? 'blue.50' : 'transparent'}
+      borderLeftWidth={activeNav === item.id ? '4px' : '0px'}
+      borderLeftColor="blue.500"
+      color={activeNav === item.id ? 'blue.600' : undefined}
+      _hover={{ bg: 'gray.100' }}
+      onClick={() => setActiveNav(item.id)}
+    >
+      <Icon boxSize="5" as={item.icon} /> {item.label}
+    </Button>
+  );
+
+  return (
+    <Flex h="100vh" direction="column" width="100vw">
+      {/* Header */}
+      <Flex 
+        as="header"
+        bg="blue.600" 
+        color="white"
+        padding="4"
+        align="center"
+        justify="space-between"
+        boxShadow="md"
+        width="100%"
+      >
+        <Flex align="center" gap="4">
+          <IconButton
+            display={{ base: 'flex', lg: 'none' }}
+            aria-label="Menu"
+            variant="ghost" 
+            bg="blue.700"
+            color="white"
+            onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+          >
+            <FiMenu />
+          </IconButton>
+          <Heading size="md">MTG Sales Pro</Heading>
+        </Flex>
+        <Stack direction="row" gap="4">
+          {/* Header actions will go here */}
+        </Stack>
+      </Flex>
+
+      {/* Main content area with sidebar */}
+      <Flex 
+        flex="1" 
+        overflow="hidden" 
+        position="relative"
+        width="100%"
+      >
+        {/* Sidebar */}
+        <Box
+          as="aside"
+          bg="white"
+          width={{ base: 'full', lg: '280px' }}
+          position={{ base: 'absolute', lg: 'relative' }}
+          h="full"
+          display={{ base: isMobileNavOpen ? 'block' : 'none', lg: 'block' }}
+          borderRightWidth="1px"
+          borderRightColor="gray.200"
+          zIndex="2"
+          overflowY="auto"
+          flexShrink="0"
+        >
+          <Stack gap="1" padding="4">
+            {navItems.map(item => (
+              <NavItem key={item.id} item={item} />
+            ))}
+          </Stack>
+        </Box>
+
+        {/* Page content - ensure it grows to fill available space */}
+        <Box 
+          flex="1"
+          p={{ base: 4, md: 8 }}
+          bg="gray.50"
+          overflowY="auto"
+          width="100%"
+          minWidth="0"
+        >
+          {activeNav === 'inventory' && (
+            <Box bg="white" borderRadius="lg" padding="6" boxShadow="sm" width="full">
+              <Stack gap="6">
+                <Heading size="lg">Inventory</Heading>
+                <hr />
+                <Text>Your card inventory will be displayed here.</Text>
+              </Stack>
+            </Box>
+          )}
+
+          {activeNav === 'add-card' && (
+            <Box bg="white" borderRadius="lg" padding="6" boxShadow="sm" width="full">
+              <Stack gap="6">
+                <Heading size="lg">Add Card</Heading>
+                <hr />
+                <Text>Card entry form will go here.</Text>
+              </Stack>
+            </Box>
+          )}
+
+          {activeNav === 'import-export' && (
+            <Box bg="white" borderRadius="lg" padding="6" boxShadow="sm" width="full">
+              <Stack gap="6">
+                <Heading size="lg">Import/Export</Heading>
+                <hr />
+                <Text>Import and export tools will be placed here.</Text>
+              </Stack>
+            </Box>
+          )}
+        </Box>
+      </Flex>
+    </Flex>
+  );
+}
+
+export default App;
