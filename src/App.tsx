@@ -9,7 +9,7 @@ import {
   Icon,
   IconButton
 } from '@chakra-ui/react';
-import { FiDatabase, FiPlusCircle, FiFileText, FiMenu } from 'react-icons/fi';
+import { FiDatabase, FiPlusCircle, FiFileText, FiMenu, FiTrendingUp } from 'react-icons/fi';
 
 // Define the type for navigation items
 interface NavItemType {
@@ -30,6 +30,7 @@ function App() {
   const navItems: NavItemType[] = [
     { id: 'inventory', label: 'Inventory', icon: FiDatabase },
     { id: 'add-card', label: 'Add Card', icon: FiPlusCircle },
+    { id: 'market-data', label: 'Market Data', icon: FiTrendingUp },
     { id: 'import-export', label: 'Import/Export', icon: FiFileText },
   ];
 
@@ -136,6 +137,32 @@ function App() {
                 <Heading size="lg">Add Card</Heading>
                 <hr />
                 <Text>Card entry form will go here.</Text>
+              </Stack>
+            </Box>
+          )}
+          
+          {activeNav === 'market-data' && (
+            <Box bg="white" borderRadius="lg" padding="6" boxShadow="sm" width="full">
+              <Stack gap="6">
+                <Heading size="lg">Market Data</Heading>
+                <hr />
+                <Stack gap="4">
+                  <Text>Download, parse, and refresh market data for your cards.</Text>
+                  <Box borderWidth="1px" borderRadius="md" padding="4" bg="gray.50">
+                    <Stack gap="4">
+                      <Heading size="md">Data Source</Heading>
+                      <Text>Status: No data downloaded</Text>
+                      <Button colorScheme="blue">Download Latest Data</Button>
+                    </Stack>
+                  </Box>
+                  <Box borderWidth="1px" borderRadius="md" padding="4" bg="gray.50">
+                    <Stack gap="4">
+                      <Heading size="md">Refresh Prices</Heading>
+                      <Text>Last updated: Never</Text>
+                      <Button colorScheme="green" disabled={true}>Refresh Prices</Button>
+                    </Stack>
+                  </Box>
+                </Stack>
               </Stack>
             </Box>
           )}
