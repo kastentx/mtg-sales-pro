@@ -1,3 +1,11 @@
+import { ComponentType } from 'react';
+
+export interface NavItemType {
+  id: string;
+  label: string;
+  icon: ComponentType;
+}
+
 export type BoosterConfig = {
     boosters: BoosterPack[];
     boostersTotalWeight: number;
