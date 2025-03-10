@@ -14,7 +14,7 @@ export const BackendStatusProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const checkStatus = useCallback(async () => {
     try {
-      const response = await fetch(`${API_CONFIG.baseUrl}/status`);
+      const response = await fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.status}`);
       const newStatus = response.ok;
       setIsConnected(newStatus);
       

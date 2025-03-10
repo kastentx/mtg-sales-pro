@@ -1,14 +1,14 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import { AllPrintingsFile } from '../types';
+import { Set } from '../types';
 import { SetOption } from '../pages/Browser';
 
 interface CardDataContextType {
-  cardData: AllPrintingsFile | null;
   isLoading: boolean;
-  lastModified: Date | null;  // Changed from lastChecked to lastModified
-  refreshData: () => Promise<void>;
+  setIsLoading: (loading: boolean) => void;
   selectedSets: SetOption[];
   setSelectedSets: (sets: SetOption[]) => void;
+  loadedSetData: Set[];
+  setLoadedSetData: (sets: Set[]) => void;
 }
 
 const CardDataContext = createContext<CardDataContextType | undefined>(undefined);
@@ -26,33 +26,19 @@ interface CardDataProviderProps {
 }
 
 export const CardDataProviderComponent = ({ children }: CardDataProviderProps) => {
-  const [cardData, setCardData] = useState<AllPrintingsFile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastModified, setLastModified] = useState<Date | null>(null);
   const [selectedSets, setSelectedSets] = useState<SetOption[]>([]);
-
-  const refreshData = async () => {
-    setIsLoading(true);
-    try {
-      // Implement data fetching logic here
-      // For now, this is a placeholder
-      setIsLoading(false);
-      setLastModified(new Date());
-    } catch (error) {
-      console.error('Error refreshing card data:', error);
-      setIsLoading(false);
-    }
-  };
+  const [loadedSetData, setLoadedSetData] = useState<Set[]>([]);
 
   return (
     <CardDataContext.Provider
       value={{
-        cardData,
         isLoading,
-        lastModified,
-        refreshData,
+        setIsLoading,
         selectedSets,
         setSelectedSets,
+        loadedSetData,
+        setLoadedSetData,
       }}
     >
       {children}
