@@ -140,7 +140,7 @@ export const AddCard = () => {
                           </Box>
                         </Table.Cell>
                         <Table.Cell>{card.name}</Table.Cell>
-                        <Table.Cell>{card.setCode}</Table.Cell>
+                        <Table.Cell><i className={`ss ss-3x ss-${card.setCode.toLocaleLowerCase()}`}></i></Table.Cell>
                         <Table.Cell>{card.type}</Table.Cell>
                         <Table.Cell>{card.rarity}</Table.Cell>
                         <Table.Cell>
