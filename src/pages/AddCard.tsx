@@ -1,4 +1,5 @@
-import { Box, Button, Heading, HStack, Image, Stack, Table, Text } from '@chakra-ui/react';
+import React from 'react';
+import { Box, Button, Heading, HStack, Image, Stack, Table, Text, Flex, Badge } from '@chakra-ui/react';
 import { OptionBase, Select } from 'chakra-react-select';
 import { useTheme } from 'next-themes';
 import { useCardData } from '../contexts/CardDataContext';
@@ -10,11 +11,27 @@ export interface PageSizeOption extends OptionBase {
   value: string;
 }
 
-export const getImageUrl = (card: CardSet) => {
+export enum ImageVariant {
+  Small = 'small',
+  Normal = 'normal',
+  Large = 'large',
+  Png = 'png',
+  BorderCrop = 'border_crop',
+  ArtCrop = 'art_crop',
+}
+
+export const getSymbolUrl = (symbol: string) => {
+  const symbolCode = symbol.slice(1, -1);
+
+
+  return `https://svgs.scryfall.io/card-symbols/${symbolCode}.svg`
+}
+
+export const getImageUrl = (card: CardSet, variant: ImageVariant = ImageVariant.Normal) => {
   const filename = card.identifiers.scryfallId || '';
   const fileFace = 'front';
-  const fileType = 'small';
-  const fileFormat = 'jpg';
+  const fileType = variant;
+  const fileFormat = variant !== ImageVariant.Png ? 'jpg' : 'png';
   const dir1 = filename.slice(0, 1);
   const dir2 = filename.slice(1, 2);
   return `https://cards.scryfall.io/${fileType}/${fileFace}/${dir1}/${dir2}/${filename}.${fileFormat}`;
@@ -27,7 +44,10 @@ export const AddCard = () => {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Track expanded row
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   
   // Extract all cards from loaded sets
   const allCards = useMemo(() => {
@@ -49,6 +69,11 @@ export const AddCard = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
   };
   
+  // Toggle expanded row
+  const toggleExpandedCard = (cardId: string) => {
+    setExpandedCardId(prevId => prevId === cardId ? null : cardId);
+  };
+  
   return (
     <Box bg={resolvedTheme === 'dark' ? 'gray.800' : 'white'} color={resolvedTheme === 'dark' ? 'white' : 'gray.800'} borderRadius="lg" padding="6" boxShadow="sm" width="full">
       <Stack gap="6">
@@ -64,18 +89,29 @@ export const AddCard = () => {
                 <Table.Header>
                   <Table.Row>
                     {/* add a thumbnail image to each row */}
-                    <Table.ColumnHeader></Table.ColumnHeader>
-                    <Table.ColumnHeader>Name</Table.ColumnHeader>
-                    <Table.ColumnHeader>Set</Table.ColumnHeader>
-                    <Table.ColumnHeader>Type</Table.ColumnHeader>
-                    <Table.ColumnHeader>Rarity</Table.ColumnHeader>
-                    <Table.ColumnHeader>Action</Table.ColumnHeader>
+                    <Table.ColumnHeader width="87px" textAlign="center"></Table.ColumnHeader>
+                    <Table.ColumnHeader textAlign="left">Name</Table.ColumnHeader>
+                    <Table.ColumnHeader textAlign="left">Set</Table.ColumnHeader>
+                    <Table.ColumnHeader textAlign="left">Type</Table.ColumnHeader>
+                    <Table.ColumnHeader textAlign="left">Rarity</Table.ColumnHeader>
+                    <Table.ColumnHeader textAlign="left">Action</Table.ColumnHeader>
                   </Table.Row>
                 </Table.Header>
                 <Table.Body>
                   {currentCards.map((card: CardSet) => (
-                    <Table.Row key={card.uuid}>
-                          <Table.Cell style={{ overflow: 'visible' }}>
+                    <React.Fragment key={card.uuid}>
+                      <Table.Row 
+                        cursor="pointer"
+                        _hover={{
+                          bg: resolvedTheme === 'dark' ? 'gray.700' : 'gray.50'
+                        }}
+                        bg={expandedCardId === card.uuid 
+                          ? (resolvedTheme === 'dark' ? 'gray.700' : 'gray.100') 
+                          : 'transparent'
+                        }
+                        onClick={() => toggleExpandedCard(card.uuid)}
+                      >
+                        <Table.Cell style={{ overflow: 'visible' }} textAlign="center">
                           <Box 
                             position="relative" 
                             height="120px"
@@ -85,33 +121,121 @@ export const AddCard = () => {
                             _hover={{
                               zIndex: "100"
                             }}
+                            onClick={(e) => e.stopPropagation()} // Prevent collapsible trigger
                           >
                             <Image 
-                            src={getImageUrl(card)} 
-                            borderRadius="7px" 
-                            height="120px" 
-                            transition="transform 0.2s"
-                            _hover={{
-                              transform: "scale(2.5)",
-                              boxShadow: "xl",
-                              zIndex: "100"
-                            }}
-                            style={{
-                              transformOrigin: "25% center"
-                            }}
+                              src={getImageUrl(card)} 
+                              borderRadius="7px" 
+                              height="120px" 
+                              transition="transform 0.2s"
+                              _hover={{
+                                transform: "scale(2.5)",
+                                boxShadow: "xl",
+                                zIndex: "100"
+                              }}
+                              style={{
+                                transformOrigin: "25% center"
+                              }}
                             />
                           </Box>
                         </Table.Cell>
-                      <Table.Cell>{card.name}</Table.Cell>
-                      <Table.Cell>{card.setCode}</Table.Cell>
-                      <Table.Cell>{card.type}</Table.Cell>
-                      <Table.Cell>{card.rarity}</Table.Cell>
-                      <Table.Cell>
-                        <Button size="xs" colorScheme="blue">
-                          Add
-                        </Button>
-                      </Table.Cell>
-                    </Table.Row>
+                        <Table.Cell>{card.name}</Table.Cell>
+                        <Table.Cell>{card.setCode}</Table.Cell>
+                        <Table.Cell>{card.type}</Table.Cell>
+                        <Table.Cell>{card.rarity}</Table.Cell>
+                        <Table.Cell>
+                          <Button 
+                            size="xs" 
+                            colorScheme="blue"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent collapsible trigger
+                              // Add card logic here
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </Table.Cell>
+                      </Table.Row>
+                      {expandedCardId === card.uuid && (
+                        <Table.Row>
+                          <Table.Cell colSpan={6} p={0}>
+                            <Box 
+                              p={4} 
+                              bg={resolvedTheme === 'dark' ? 'gray.700' : 'gray.50'}
+                              borderBottomWidth="1px"
+                            >
+                              <Flex direction="row" gap={6}>
+                                <Box flex="1">
+                                  <Stack gap={2}>
+                                    <Heading size="sm">Card Details</Heading>
+                                    <Flex gap={2} wrap="wrap">
+                                      {card.colors?.map((color, idx) => (
+                                        <Badge key={idx} colorScheme={
+                                          color === 'W' ? 'yellow' : 
+                                          color === 'U' ? 'blue' : 
+                                          color === 'B' ? 'purple' : 
+                                          color === 'R' ? 'red' : 
+                                          color === 'G' ? 'green' : 'gray'
+                                        }>
+                                          {color}
+                                        </Badge>
+                                      ))}
+                                    </Flex>
+                                    {card.manaCost && (
+                                        <Flex align="center" gap={1}>
+                                        <Text fontSize="sm" fontWeight="bold">Mana Cost:</Text>
+                                        {card.manaCost.match(/{[^}]+}/g)?.map((symbol, idx) => (
+                                          <Image 
+                                          key={idx}
+                                          src={getSymbolUrl(symbol)}
+                                          alt={symbol}
+                                          width="16px"
+                                          height="16px"
+                                          />
+                                        ))}
+                                        </Flex>
+                                    )}
+                                    {card.text && (
+                                      <Text fontSize="sm">
+                                      <strong>Text:</strong>{' '}
+                                      {card.text.split(/({[^}]+})/g).map((segment, idx) => (
+                                        segment.match(/^{[^}]+}$/) ? 
+                                        <Image 
+                                          key={idx}
+                                          display="inline"
+                                          src={getSymbolUrl(segment)}
+                                          alt={segment}
+                                          width="16px"
+                                          height="16px"
+                                          verticalAlign="middle"
+                                        /> :
+                                        <React.Fragment key={idx}>{segment}</React.Fragment>
+                                      ))}
+                                      </Text>
+                                    )}
+                                    {card.flavorText && (
+                                      <Text fontSize="sm" fontStyle="italic">{card.flavorText}</Text>
+                                    )}
+                                  </Stack>
+                                </Box>
+                                <Box>
+                                  <Stack gap={2}>
+                                    <Heading size="sm">Collection Info</Heading>
+                                    <Text fontSize="sm"><strong>Number:</strong> {card.number}</Text>
+                                    {card.power && card.toughness && (
+                                      <Text fontSize="sm"><strong>P/T:</strong> {card.power}/{card.toughness}</Text>
+                                    )}
+                                    {card.artist && (
+                                      <Text fontSize="sm"><strong>Artist:</strong> {card.artist}</Text>
+                                    )}
+                                  </Stack>
+                                </Box>
+                              </Flex>
+                            </Box>
+                          </Table.Cell>
+                        </Table.Row>
+                      )}
+                    </React.Fragment>
                   ))}
                 </Table.Body>
               </Table.Root>
