@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { API_CONFIG } from '../config/api';
 
 interface SetInfo {
-  code: string;
   name: string;
+  code: string;
+  keyruneCode: string;
 }
 
 export function useSetNames() {
@@ -12,7 +13,7 @@ export function useSetNames() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.setNames}`)
+    fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.sets}`)
       .then(res => res.json())
       .then((data: SetInfo[]) => {
         setSets(data);

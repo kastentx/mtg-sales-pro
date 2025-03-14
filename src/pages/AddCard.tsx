@@ -1,64 +1,165 @@
-import React from 'react';
-import { Box, Button, Heading, HStack, Image, Stack, Table, Text, Flex, Badge } from '@chakra-ui/react';
+import { Box, Button, Heading, HStack, Stack, Text, Flex, IconButton, Input } from '@chakra-ui/react';
+import { FaChevronLeft, FaChevronRight, FaFastBackward, FaFastForward, FaSearch } from 'react-icons/fa';
 import { OptionBase, Select } from 'chakra-react-select';
 import { useTheme } from 'next-themes';
 import { useCardData } from '../contexts/CardDataContext';
-import { useState, useMemo } from 'react';
-import { CardSet } from '../types';
+import { useCollection } from '../contexts/CollectionContext';
+import { useState, useMemo, useEffect } from 'react';
+import { CardSet, SortField, SortDirection, ViewMode } from '../types';
+import CardListView from '../components/cards/CardListView';
+import CardGridView from '../components/cards/CardGridView';
+import PillToggle from '../components/cards/PillToggle';
+import { getHighestRetailPrice, getColorName } from '../utils/cardUtils';
+import { toaster } from '@/components/ui/toaster';
 
 export interface PageSizeOption extends OptionBase {
   label: string;
   value: string;
 }
 
-export enum ImageVariant {
-  Small = 'small',
-  Normal = 'normal',
-  Large = 'large',
-  Png = 'png',
-  BorderCrop = 'border_crop',
-  ArtCrop = 'art_crop',
-}
-
-export const getSymbolUrl = (symbol: string) => {
-  const symbolCode = symbol.slice(1, -1);
-
-
-  return `https://svgs.scryfall.io/card-symbols/${symbolCode}.svg`
-}
-
-export const getImageUrl = (card: CardSet, variant: ImageVariant = ImageVariant.Normal) => {
-  const filename = card.identifiers.scryfallId || '';
-  const fileFace = 'front';
-  const fileType = variant;
-  const fileFormat = variant !== ImageVariant.Png ? 'jpg' : 'png';
-  const dir1 = filename.slice(0, 1);
-  const dir2 = filename.slice(1, 2);
-  return `https://cards.scryfall.io/${fileType}/${fileFace}/${dir1}/${dir2}/${filename}.${fileFormat}`;
-}
-
+// Add a helper function to check if a card only has foil pricing
+const hasOnlyFoilPricing = (card: CardSet): boolean => {
+  const hasFoil = !!(card.pricing?.retail?.foil && 
+    Object.values(card.pricing.retail.foil).some(price => price !== undefined));
+  const hasNormal = !!(card.pricing?.retail?.normal && 
+    Object.values(card.pricing.retail.normal).some(price => price !== undefined));
+  
+  return hasFoil && !hasNormal;
+};
 
 export const AddCard = () => {
   const { resolvedTheme } = useTheme();
-  const { loadedSetData } = useCardData();
+  const { loadedSetData, loadedCardData } = useCardData();
+  const { addCardToCollection } = useCollection();
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  // Track expanded row
-  const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
+  // View mode state
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.List);
   
-  // Extract all cards from loaded sets
-  const allCards = useMemo(() => {
-    return loadedSetData.flatMap(set => set.cards || []);
-  }, [loadedSetData]);
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
   
-  // Calculate pagination
-  const totalPages = Math.ceil(allCards.length / itemsPerPage);
+  // Sorting state - moved from CardListView
+  const [sortField, setSortField] = useState<SortField>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // Add foilCardIds state to track which cards are foil
+  const [foilCardIds, setFoilCardIds] = useState<Set<string>>(new Set());
+  
+  // Initialize foilCardIds with cards that only have foil pricing
+  useEffect(() => {
+    const newFoilCardIds = new Set<string>(foilCardIds);
+    
+    // Check each card in loadedCardData
+    loadedCardData.forEach(card => {
+      if (hasOnlyFoilPricing(card)) {
+        newFoilCardIds.add(card.uuid);
+      }
+    });
+    
+    // Update foilCardIds if changes were made
+    if (newFoilCardIds.size !== foilCardIds.size) {
+      setFoilCardIds(newFoilCardIds);
+    }
+  }, [loadedCardData]);
+  
+  // Handler for toggling foil state
+  const handleToggleFoil = (cardUuid: string, isFoil: boolean) => {
+    console.log('Toggling foil state for card:', cardUuid, isFoil);
+    setFoilCardIds(prev => {
+      const newSet = new Set(prev);
+      if (isFoil) {
+        newSet.add(cardUuid);
+      } else {
+        newSet.delete(cardUuid);
+      }
+      return newSet;
+    });
+  };
+  
+  // Handler for sort changes
+  const handleSortChange = (field: SortField, direction: SortDirection) => {
+    setSortField(field);
+    setSortDirection(direction);
+    setCurrentPage(1); // Reset to first page when sorting changes
+  };
+  
+  // Filter cards based on search query before sorting
+  const filteredCards = useMemo(() => {
+    if (!searchQuery.trim()) return loadedCardData;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return loadedCardData.filter(card => 
+      card.name.toLowerCase().includes(query) || 
+      card.type?.toLowerCase().includes(query) || 
+      card.setCode?.toLowerCase().includes(query)
+    );
+  }, [loadedCardData, searchQuery]);
+  
+  // Apply sorting to filtered cards before pagination
+  const sortedAllCards = useMemo(() => {
+    if (!sortField) return filteredCards;
+
+    return [...filteredCards].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'number':
+          // Try to sort by numeric value if possible, otherwise lexicographically
+          const numA = parseInt(a.number);
+          const numB = parseInt(b.number);
+          if (!isNaN(numA) && !isNaN(numB)) {
+            comparison = numA - numB;
+          } else {
+            comparison = a.number.localeCompare(b.number);
+          }
+          break;
+        case 'set':
+          comparison = (a.setCode || '').localeCompare(b.setCode || '');
+          break;
+        case 'rarity':
+          // Sort by rarity weight (mythic > rare > uncommon > common)
+          const rarityWeight: Record<string, number> = {
+            'mythic': 4,
+            'rare': 3,
+            'uncommon': 2,
+            'common': 1,
+            '': 0
+          };
+          const weightA = rarityWeight[a.rarity.toLowerCase() as keyof typeof rarityWeight] || 0;
+          const weightB = rarityWeight[b.rarity.toLowerCase() as keyof typeof rarityWeight] || 0;
+          comparison = weightB - weightA; // Default to high-to-low for rarity
+          break;
+        case 'color':
+          comparison = getColorName(a.colors).localeCompare(getColorName(b.colors));
+          break;
+        case 'type':
+          comparison = (a.type || '').localeCompare(b.type || '');
+          break;
+        case 'price':
+          // Simplified to use only the high price for sorting
+          const priceA = getHighestRetailPrice(a) || 0;
+          const priceB = getHighestRetailPrice(b) || 0;
+          comparison = priceA - priceB;
+          break;
+      }
+
+      // Reverse for descending order
+      return sortDirection === 'desc' ? -comparison : comparison;
+    });
+  }, [filteredCards, sortField, sortDirection]);
+  
+  // Calculate pagination AFTER sorting all cards
+  const totalPages = Math.ceil(sortedAllCards.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentCards = allCards.slice(startIndex, endIndex);
+  const currentCards = sortedAllCards.slice(startIndex, endIndex);
   
   // Page navigation
   const nextPage = () => {
@@ -69,186 +170,117 @@ export const AddCard = () => {
     setCurrentPage(prev => Math.max(prev - 1, 1));
   };
   
-  // Toggle expanded row
-  const toggleExpandedCard = (cardId: string) => {
-    setExpandedCardId(prevId => prevId === cardId ? null : cardId);
+  // New navigation functions for first and last page
+  const firstPage = () => {
+    setCurrentPage(1);
+  };
+  
+  const lastPage = () => {
+    setCurrentPage(totalPages);
+  };
+  
+  // Handle search query change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1); // Reset to first page when search changes
+  };
+  
+  // Handle adding a card to collection
+  const handleAddCard = (card: CardSet, quantity: number = 1, isFoil: boolean = false) => {
+    // Use the foil state from our tracked foilCardIds
+    addCardToCollection(card, quantity, isFoil);
+    toaster.create({
+      title: "Card added to collection",
+      description: `${card.name}${isFoil ? ' (Foil)' : ''} has been added to your inventory.`,
+    });
   };
   
   return (
     <Box bg={resolvedTheme === 'dark' ? 'gray.800' : 'white'} color={resolvedTheme === 'dark' ? 'white' : 'gray.800'} borderRadius="lg" padding="6" boxShadow="sm" width="full">
       <Stack gap="6">
-        <Heading size="lg">Add Card</Heading>
+        <Flex justify="space-between" align="center">
+          <Heading size="lg">Add Card</Heading>
+          <HStack gap={4}>
+            <Box position="relative" maxW="250px">
+              <Input
+                placeholder="Search cards..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                size="lg"
+                pr="8"
+              />
+              <Box position="absolute" right="3" top="50%" transform="translateY(-50%)">
+                <FaSearch />
+              </Box>
+            </Box>
+            <PillToggle activeView={viewMode} onChange={setViewMode} />
+          </HStack>
+        </Flex>
         <hr />
         
         {loadedSetData.length === 0 ? (
           <Text>No sets loaded. Please select sets in the browser to view cards.</Text>
         ) : (
           <>
-            <Box overflowX="auto" overflow="visible">
-              <Table.Root variant="line" size="sm" style={{ overflow: 'visible' }}>
-                <Table.Header>
-                  <Table.Row>
-                    {/* add a thumbnail image to each row */}
-                    <Table.ColumnHeader width="87px" textAlign="center"></Table.ColumnHeader>
-                    <Table.ColumnHeader textAlign="left">Name</Table.ColumnHeader>
-                    <Table.ColumnHeader textAlign="left">Set</Table.ColumnHeader>
-                    <Table.ColumnHeader textAlign="left">Type</Table.ColumnHeader>
-                    <Table.ColumnHeader textAlign="left">Rarity</Table.ColumnHeader>
-                    <Table.ColumnHeader textAlign="left">Action</Table.ColumnHeader>
-                  </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                  {currentCards.map((card: CardSet) => (
-                    <React.Fragment key={card.uuid}>
-                      <Table.Row 
-                        cursor="pointer"
-                        _hover={{
-                          bg: resolvedTheme === 'dark' ? 'gray.700' : 'gray.50'
-                        }}
-                        bg={expandedCardId === card.uuid 
-                          ? (resolvedTheme === 'dark' ? 'gray.700' : 'gray.100') 
-                          : 'transparent'
-                        }
-                        onClick={() => toggleExpandedCard(card.uuid)}
-                      >
-                        <Table.Cell style={{ overflow: 'visible' }} textAlign="center">
-                          <Box 
-                            position="relative" 
-                            height="120px"
-                            width="87px"  
-                            overflow="visible"
-                            zIndex="1"
-                            _hover={{
-                              zIndex: "100"
-                            }}
-                            onClick={(e) => e.stopPropagation()} // Prevent collapsible trigger
-                          >
-                            <Image 
-                              src={getImageUrl(card)} 
-                              borderRadius="7px" 
-                              height="120px" 
-                              transition="transform 0.2s"
-                              _hover={{
-                                transform: "scale(2.5)",
-                                boxShadow: "xl",
-                                zIndex: "100"
-                              }}
-                              style={{
-                                transformOrigin: "25% center"
-                              }}
-                            />
-                          </Box>
-                        </Table.Cell>
-                        <Table.Cell>{card.name}</Table.Cell>
-                        <Table.Cell><i className={`ss ss-3x ss-${card.setCode.toLocaleLowerCase()}`}></i></Table.Cell>
-                        <Table.Cell>{card.type}</Table.Cell>
-                        <Table.Cell>{card.rarity}</Table.Cell>
-                        <Table.Cell>
-                          <Button 
-                            size="xs" 
-                            colorScheme="blue"
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent collapsible trigger
-                              // Add card logic here
-                            }}
-                          >
-                            Add
-                          </Button>
-                        </Table.Cell>
-                      </Table.Row>
-                      {expandedCardId === card.uuid && (
-                        <Table.Row>
-                          <Table.Cell colSpan={6} p={0}>
-                            <Box 
-                              p={4} 
-                              bg={resolvedTheme === 'dark' ? 'gray.700' : 'gray.50'}
-                              borderBottomWidth="1px"
-                            >
-                              <Flex direction="row" gap={6}>
-                                <Box flex="1">
-                                  <Stack gap={2}>
-                                    <Heading size="sm">Card Details</Heading>
-                                    <Flex gap={2} wrap="wrap">
-                                      {card.colors?.map((color, idx) => (
-                                        <Badge key={idx} colorScheme={
-                                          color === 'W' ? 'yellow' : 
-                                          color === 'U' ? 'blue' : 
-                                          color === 'B' ? 'purple' : 
-                                          color === 'R' ? 'red' : 
-                                          color === 'G' ? 'green' : 'gray'
-                                        }>
-                                          {color}
-                                        </Badge>
-                                      ))}
-                                    </Flex>
-                                    {card.manaCost && (
-                                        <Flex align="center" gap={1}>
-                                        <Text fontSize="sm" fontWeight="bold">Mana Cost:</Text>
-                                        {card.manaCost.match(/{[^}]+}/g)?.map((symbol, idx) => (
-                                          <Image 
-                                          key={idx}
-                                          src={getSymbolUrl(symbol)}
-                                          alt={symbol}
-                                          width="16px"
-                                          height="16px"
-                                          />
-                                        ))}
-                                        </Flex>
-                                    )}
-                                    {card.text && (
-                                      <Text fontSize="sm">
-                                      <strong>Text:</strong>{' '}
-                                      {card.text.split(/({[^}]+})/g).map((segment, idx) => (
-                                        segment.match(/^{[^}]+}$/) ? 
-                                        <Image 
-                                          key={idx}
-                                          display="inline"
-                                          src={getSymbolUrl(segment)}
-                                          alt={segment}
-                                          width="16px"
-                                          height="16px"
-                                          verticalAlign="middle"
-                                        /> :
-                                        <React.Fragment key={idx}>{segment}</React.Fragment>
-                                      ))}
-                                      </Text>
-                                    )}
-                                    {card.flavorText && (
-                                      <Text fontSize="sm" fontStyle="italic">{card.flavorText}</Text>
-                                    )}
-                                  </Stack>
-                                </Box>
-                                <Box>
-                                  <Stack gap={2}>
-                                    <Heading size="sm">Collection Info</Heading>
-                                    <Text fontSize="sm"><strong>Number:</strong> {card.number}</Text>
-                                    {card.power && card.toughness && (
-                                      <Text fontSize="sm"><strong>P/T:</strong> {card.power}/{card.toughness}</Text>
-                                    )}
-                                    {card.artist && (
-                                      <Text fontSize="sm"><strong>Artist:</strong> {card.artist}</Text>
-                                    )}
-                                  </Stack>
-                                </Box>
-                              </Flex>
-                            </Box>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </Table.Body>
-              </Table.Root>
-            </Box>
+            {sortedAllCards.length === 0 ? (
+              <Text>No cards match your search query.</Text>
+            ) : viewMode === ViewMode.List ? (
+              <CardListView 
+                cards={currentCards} 
+                onAddCard={handleAddCard} 
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSortChange={handleSortChange}
+                foilCardIds={foilCardIds}
+                onToggleFoil={handleToggleFoil}
+              />
+            ) : (
+              <CardGridView 
+                cards={currentCards} 
+                onAddCard={handleAddCard} 
+                foilCardIds={foilCardIds}
+                onToggleFoil={handleToggleFoil}
+              />
+            )}
             
-            <HStack justify="space-between">
-              <HStack>
+            <HStack justify="space-between" gap={4}>
+              <HStack gap={2} align="center">
+                <IconButton 
+                  aria-label="First page" 
+                  onClick={firstPage} 
+                  disabled={currentPage === 1}
+                  size="sm"
+                >
+                  <FaFastBackward />
+                </IconButton>
+                <IconButton 
+                  aria-label="Previous page" 
+                  onClick={prevPage} 
+                  disabled={currentPage === 1}
+                  size="sm"
+                >
+                  <FaChevronLeft />
+                </IconButton>
                 <Text>Page {currentPage} of {totalPages}</Text>
-                <Button onClick={prevPage} disabled={currentPage === 1} size="sm">Previous</Button>
-                <Button onClick={nextPage} disabled={currentPage === totalPages} size="sm">Next</Button>
+                <IconButton 
+                  aria-label="Next page" 
+                  onClick={nextPage} 
+                  disabled={currentPage === totalPages}
+                  size="sm"
+                >
+                  <FaChevronRight />
+                </IconButton>
+                <IconButton 
+                  aria-label="Last page" 
+                  onClick={lastPage} 
+                  disabled={currentPage === totalPages}
+                  size="sm"
+                >
+                  <FaFastForward />
+                </IconButton>
               </HStack>
               
-              <HStack>
+              <HStack gap={2}>
                 <Text>Cards per page:</Text>
                 <Select 
                   options={[
@@ -258,7 +290,7 @@ export const AddCard = () => {
                     { value: 50, label: '50' }
                   ]}
                   value={{ value: itemsPerPage, label: itemsPerPage.toString() }}
-                  onChange={(e) => {
+                  onChange={(e: any) => {
                     setItemsPerPage(e?.value || 10);
                     setCurrentPage(1); // Reset to first page when changing page size
                   }}
@@ -268,7 +300,7 @@ export const AddCard = () => {
             </HStack>
             
             <Text fontSize="sm">
-              Showing {startIndex + 1} - {Math.min(endIndex, allCards.length)} of {allCards.length} cards
+              Showing {startIndex + 1} - {Math.min(endIndex, sortedAllCards.length)} of {sortedAllCards.length} cards
             </Text>
           </>
         )}

@@ -10,6 +10,8 @@ import { MarketData } from './pages/MarketData';
 import { ImportExport } from './pages/ImportExport';
 import { Browser } from './pages/Browser';
 import { NavItemType } from './types';
+import { CardDataProviderComponent } from './contexts/CardDataContext';
+import { CollectionProviderComponent } from './contexts/CollectionContext';
 
 function App() {
   const [activeNav, setActiveNav] = useState('add-card');
@@ -24,24 +26,28 @@ function App() {
   ];
 
   return (
-    <Layout activeNav={activeNav} setActiveNav={setActiveNav} navItems={navItems}>
-      <Toaster />
-      <Box 
-        flex="1"
-        p={{ base: 4, md: 8 }}
-        bg={resolvedTheme === 'dark' ? 'gray.900' : 'gray.50'}
-        color={resolvedTheme === 'dark' ? 'white' : 'gray.800'}
-        overflowY="auto"
-        width="100%"
-        minWidth="0"
-      >
-        {activeNav === 'inventory' && <Inventory />}
-        {activeNav === 'add-card' && <AddCard />}
-        {activeNav === 'browser' && <Browser />}
-        {activeNav === 'market-data' && <MarketData />}
-        {activeNav === 'import-export' && <ImportExport />}
-      </Box>
-    </Layout>
+    <CardDataProviderComponent>
+      <CollectionProviderComponent>
+        <Layout activeNav={activeNav} setActiveNav={setActiveNav} navItems={navItems}>
+          <Toaster />
+          <Box 
+            flex="1"
+            p={{ base: 4, md: 8 }}
+            bg={resolvedTheme === 'dark' ? 'gray.900' : 'gray.50'}
+            color={resolvedTheme === 'dark' ? 'white' : 'gray.800'}
+            overflowY="auto"
+            width="100%"
+            minWidth="0"
+          >
+            {activeNav === 'inventory' && <Inventory />}
+            {activeNav === 'add-card' && <AddCard />}
+            {activeNav === 'browser' && <Browser />}
+            {activeNav === 'market-data' && <MarketData />}
+            {activeNav === 'import-export' && <ImportExport />}
+          </Box>
+        </Layout>
+      </CollectionProviderComponent>
+    </CardDataProviderComponent>
   );
 }
 

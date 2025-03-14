@@ -1,8 +1,8 @@
 import { Box, Text } from "@chakra-ui/react";
-import { Set } from "../types";
+import { SetList } from "../types";
 
 
-export const SetCard = ({ set }: { set: Set }) => {
+export const SetCard = ({ set }: { set: SetList }) => {
     return (
         <Box
         borderWidth="1px"
@@ -17,11 +17,14 @@ export const SetCard = ({ set }: { set: Set }) => {
             <Text fontSize="xl" fontWeight="bold">
             {set.name}
             </Text>
-            <Text>{set.code}</Text>
+            <Text>
+                {/* refactor this and make the symbol bigger/to the side */}
+                {<i className={`ss ss-${set.keyruneCode.toLocaleLowerCase()} ss-2x`} />}
+            </Text>
         </Box>
         <Box>
-            <Text>{set.type}</Text>
-            <Text>{set.releaseDate}</Text>
+            <Text>Type: {set.type}</Text>
+            <Text>Release Date: {set.releaseDate}</Text>
         </Box>
         </Box>
     );

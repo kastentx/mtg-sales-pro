@@ -5,7 +5,7 @@ import { Select, OptionBase } from "chakra-react-select";
 import { useCardData } from '../contexts/CardDataContext';
 import { API_CONFIG } from '../config/api';
 import { SetCard } from '@/components/SetCard';
-import { Set } from '../types';
+import { SetList, CardSet } from '../types';
 
 export interface SetOption extends OptionBase {
   label: string;
@@ -17,7 +17,7 @@ export interface SetOption extends OptionBase {
 export function Browser() {
   const { resolvedTheme } = useTheme();
   const { sets, isLoading } = useSetNames();
-  const { selectedSets, setSelectedSets, loadedSetData, setLoadedSetData } = useCardData();
+  const { selectedSets, setSelectedSets, loadedSetData, setLoadedSetData, setLoadedCardData } = useCardData();
 
   const setOptions: SetOption[] = sets.map((set) => ({
     value: set.name,
@@ -41,9 +41,29 @@ export function Browser() {
     })
       .then((response) => response.json())
       .then((data) => {
-        const setData = data as Set[];
+        const setData = data as SetList[];
         // update the card data context with the new data
         setLoadedSetData(setData);
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+      });
+    loadCards();
+  };
+
+  const loadCards = () => {
+    const selectedSetCodes = selectedSets.map((set) => set.code);
+    // send a post request to the backend to load the selected sets
+    fetch(`${API_CONFIG.baseUrl}${API_CONFIG.endpoints.cards}/set-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ setCodes: selectedSetCodes }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        setLoadedCardData(data as CardSet[]);
       })
       .catch((error) => {
         console.error('Error:', error);
@@ -69,7 +89,7 @@ export function Browser() {
               variant="outline"
             />
             {/* add a load sets button here*/}
-            <Button onClick={loadSets}>Load Sets</Button>
+            <Button color="white" onClick={loadSets}>Load Sets</Button>
           </Stack>
         </Stack>
       </Box>
@@ -81,7 +101,7 @@ export function Browser() {
       <hr />
       <Flex flexWrap="wrap" justifyContent="center" mt={4}>
         {/* TODO: improve these, maybe add a close button to remove */}
-        {loadedSetData.map((set: Set) => (
+        {loadedSetData.map((set: SetList) => (
           <SetCard key={set.code} set={set} />
         ))}
       </Flex>
